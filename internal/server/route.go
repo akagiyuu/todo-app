@@ -58,13 +58,13 @@ func (s *Server) CreateTodo(c *gin.Context) {
 	c.JSON(http.StatusOK, params)
 }
 
-type GetTodoParams struct {
+type FilterTodoParams struct {
 	Priority string `form:"priority" json:"priority"`
 	Category string `form:"category" json:"category"`
 }
 
-func (s *Server) GetTodo(c *gin.Context) {
-	var params GetTodoParams
+func (s *Server) FilterTodo(c *gin.Context) {
+	var params FilterTodoParams
 	if err := c.ShouldBind(&params); err != nil {
 		s.logger.Error(err)
 		c.Error(fmt.Errorf("Invalid data provided"))
@@ -73,13 +73,33 @@ func (s *Server) GetTodo(c *gin.Context) {
 
 	queries := database.New(s.db)
 
-	todo, err := queries.GetTodo(c, database.GetTodoParams{
+	todo, err := queries.FilterTodo(c, database.FilterTodoParams{
 		Priority: params.Priority,
 		Category: params.Category,
 	})
 	if err != nil {
 		s.logger.Error(err)
 		c.Error(fmt.Errorf("Failed to delete todo with parameter: %+v", params))
+		return
+	}
+
+	c.JSON(http.StatusOK, todo)
+}
+
+func (s *Server) GetTodo(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		s.logger.Error(err)
+		c.Error(fmt.Errorf("Invalid todo id: %s", c.Param("id")))
+		return
+	}
+
+	queries := database.New(s.db)
+
+	todo, err := queries.GetTodo(c, id)
+	if err != nil {
+		s.logger.Error(err)
+		c.Error(fmt.Errorf("Failed to get todo with id %d", id))
 		return
 	}
 
@@ -107,7 +127,8 @@ func (s *Server) RegisterRoutes() http.Handler {
 
 	r.Use(ErrorHandler)
 	r.POST("/todo", s.CreateTodo)
-	r.GET("/todo", s.GetTodo)
+	r.GET("/todo", s.FilterTodo)
+	r.GET("/todo/:id", s.GetTodo)
 	r.DELETE("/todo/:id", s.DeleteTodo)
 
 	return r
