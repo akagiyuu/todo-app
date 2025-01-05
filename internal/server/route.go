@@ -122,10 +122,38 @@ func (s *Server) DeleteTodo(c *gin.Context) {
 	}
 }
 
+func (s *Server) GetPriorities(c *gin.Context) {
+	queries := database.New(s.db)
+
+	priorities, err := queries.GetPriorities(c)
+	if err !=  nil {
+		s.logger.Error(err)
+		c.Error(fmt.Errorf("Failed to get all priorities"))
+		return
+	}
+
+	c.JSON(http.StatusOK, priorities)
+}
+
+func (s *Server) GetCategories(c *gin.Context) {
+	queries := database.New(s.db)
+
+	categories, err := queries.GetCategories(c)
+	if err !=  nil {
+		s.logger.Error(err)
+		c.Error(fmt.Errorf("Failed to get all categories"))
+		return
+	}
+
+	c.JSON(http.StatusOK, categories)
+}
+
 func (s *Server) RegisterRoutes() http.Handler {
 	r := gin.Default()
 
 	r.Use(ErrorHandler)
+	r.GET("/priority", s.GetPriorities)
+	r.GET("/category", s.GetCategories)
 	r.POST("/todo", s.CreateTodo)
 	r.GET("/todo", s.FilterTodo)
 	r.GET("/todo/:id", s.GetTodo)
