@@ -3,11 +3,13 @@ package server
 import (
 	"database/sql"
 	"fmt"
-	"github.com/charmbracelet/log"
 	"net/http"
 	"os"
 	"strconv"
 	"time"
+
+	"github.com/charmbracelet/log"
+	"github.com/gin-gonic/gin"
 
 	_ "github.com/joho/godotenv/autoload"
 	_ "github.com/mattn/go-sqlite3"
@@ -17,6 +19,20 @@ type Server struct {
 	port   int
 	db     *sql.DB
 	logger *log.Logger
+}
+
+func (s *Server) RegisterRoutes() http.Handler {
+	r := gin.Default()
+
+	r.Use(ErrorHandler)
+	r.GET("/priority", s.GetPriorities)
+	r.GET("/category", s.GetCategories)
+	r.POST("/todo", s.CreateTodo)
+	r.GET("/todo", s.FilterTodo)
+	r.GET("/todo/:id", s.GetTodo)
+	r.DELETE("/todo/:id", s.DeleteTodo)
+
+	return r
 }
 
 func NewServer() *http.Server {
