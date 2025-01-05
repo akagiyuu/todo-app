@@ -53,6 +53,58 @@ func (q *Queries) DeleteTodo(ctx context.Context, id int64) error {
 	return err
 }
 
+const filterTodo = `-- name: FilterTodo :many
+SELECT todos.id as id, title, description, priorities.name as priority, categories.name as category
+FROM todos
+INNER JOIN priorities ON priorities.id = priority_id
+INNER JOIN categories ON categories.id = category_id
+WHERE
+    (priorities.name = ?1 OR ?1 = '') AND
+    (categories.name = ?2 OR ?2 = '')
+`
+
+type FilterTodoParams struct {
+	Priority string `json:"priority"`
+	Category string `json:"category"`
+}
+
+type FilterTodoRow struct {
+	ID          int64  `json:"id"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	Priority    string `json:"priority"`
+	Category    string `json:"category"`
+}
+
+func (q *Queries) FilterTodo(ctx context.Context, arg FilterTodoParams) ([]FilterTodoRow, error) {
+	rows, err := q.db.QueryContext(ctx, filterTodo, arg.Priority, arg.Category)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []FilterTodoRow
+	for rows.Next() {
+		var i FilterTodoRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.Description,
+			&i.Priority,
+			&i.Category,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getCategories = `-- name: GetCategories :many
 SELECT name FROM categories
 `
@@ -129,52 +181,31 @@ func (q *Queries) GetPriority(ctx context.Context, name string) (int64, error) {
 	return id, err
 }
 
-const getTodo = `-- name: GetTodo :many
-SELECT title, description, priorities.name as priority, categories.name as category
+const getTodo = `-- name: GetTodo :one
+SELECT todos.id as id, title, description, priorities.name as priority, categories.name as category
 FROM todos
 INNER JOIN priorities ON priorities.id = priority_id
 INNER JOIN categories ON categories.id = category_id
-WHERE
-    (priorities.name = ?1 OR ?1 = '') AND
-    (categories.name = ?2 OR ?2 = '')
+WHERE todos.id = ?1
 `
 
-type GetTodoParams struct {
-	Priority string `json:"priority"`
-	Category string `json:"category"`
-}
-
 type GetTodoRow struct {
+	ID          int64  `json:"id"`
 	Title       string `json:"title"`
 	Description string `json:"description"`
 	Priority    string `json:"priority"`
 	Category    string `json:"category"`
 }
 
-func (q *Queries) GetTodo(ctx context.Context, arg GetTodoParams) ([]GetTodoRow, error) {
-	rows, err := q.db.QueryContext(ctx, getTodo, arg.Priority, arg.Category)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetTodoRow
-	for rows.Next() {
-		var i GetTodoRow
-		if err := rows.Scan(
-			&i.Title,
-			&i.Description,
-			&i.Priority,
-			&i.Category,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
+func (q *Queries) GetTodo(ctx context.Context, id int64) (GetTodoRow, error) {
+	row := q.db.QueryRowContext(ctx, getTodo, id)
+	var i GetTodoRow
+	err := row.Scan(
+		&i.ID,
+		&i.Title,
+		&i.Description,
+		&i.Priority,
+		&i.Category,
+	)
+	return i, err
 }

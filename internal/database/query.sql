@@ -22,8 +22,15 @@ VALUES (?, ?, ?, ?);
 -- name: DeleteTodo :exec
 DELETE FROM todos WHERE id = ?;
 
--- name: GetTodo :many
-SELECT title, description, priorities.name as priority, categories.name as category
+-- name: GetTodo :one
+SELECT todos.id as id, title, description, priorities.name as priority, categories.name as category
+FROM todos
+INNER JOIN priorities ON priorities.id = priority_id
+INNER JOIN categories ON categories.id = category_id
+WHERE todos.id = @id;
+
+-- name: FilterTodo :many
+SELECT todos.id as id, title, description, priorities.name as priority, categories.name as category
 FROM todos
 INNER JOIN priorities ON priorities.id = priority_id
 INNER JOIN categories ON categories.id = category_id
